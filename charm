@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Charm Merge — Airy Fairy Press</title>
+  <meta name="description" content="A cozy merge puzzle by Airy Fairy Press. Slide to merge matching charms and chase the Wish Orb." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root{
+      --bg:#fff7fb; --card:#ffffff; --accent:#f2d5e8; --accent2:#e6eafc; --ink:#2a2030; --muted:#6a5b6f; --gold:#c4a86b;
+      --tile:#fff; --tile-shadow:rgba(0,0,0,0.08);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; color:var(--ink); background:
+      radial-gradient(1200px 800px at 20% -10%, #ffeef6 0%, transparent 60%),
+      radial-gradient(900px 600px at 120% 120%, #eef1ff 0%, transparent 60%),
+      var(--bg);
+    }
+    .wrap{max-width:980px; margin:0 auto; padding:24px}
+    header{display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:16px}
+    .logo{font-family:"Playfair Display",serif; font-weight:700; font-size:28px; letter-spacing:.5px}
+
+    .panel{display:grid; grid-template-columns:320px 1fr; gap:24px}
+    @media (max-width:900px){.panel{grid-template-columns:1fr}}
+
+    .card{background:var(--card); border:1px solid #f0e7f3; border-radius:20px; box-shadow:0 10px 30px -15px rgba(114,83,109,.25); padding:16px}
+
+    .board{aspect-ratio:1/1; width:100%; max-width:520px; background:linear-gradient(180deg,#fff,#fff7fb); border-radius:18px; padding:10px; box-shadow:inset 0 0 0 1px #f0e7f3; position:relative; touch-action:manipulation}
+    .grid{display:grid; grid-template-columns:repeat(5,1fr); grid-template-rows:repeat(5,1fr); gap:10px; height:100%}
+    .cell{position:relative; background:linear-gradient(180deg,#faf6fd,#f8f5ff); border:1px dashed #eee5f0; border-radius:14px}
+
+    .tile{position:relative; display:flex; align-items:center; justify-content:center; font-size:30px; user-select:none; width:100%; height:100%; filter: drop-shadow(0 6px 10px var(--tile-shadow));}
+    .face{display:flex; flex-direction:column; align-items:center; justify-content:center; width:100%; height:100%; background:var(--tile); border-radius:12px; border:1px solid #efe6f3}
+    .label{font-size:12px; color:var(--muted); margin-top:2px}
+
+    .hud{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .pill{background:#fff; border:1px solid #efe6f3; padding:10px 12px; border-radius:14px; min-width:110px; text-align:center}
+    .big{font-weight:700}
+    .btn{cursor:pointer; background:linear-gradient(180deg,#fff,#fff7fb); border:1px solid #efe6f3; border-radius:12px; padding:10px 14px; font-weight:600}
+    .btn.gold{background:linear-gradient(180deg,#fff8ea,#fff); border-color:#f1e3c5; color:#7a5f1e}
+
+    .help h3{font-family:"Playfair Display",serif; margin:.3em 0}
+    .help p{color:#5a5060; line-height:1.6}
+    .help ul{margin:.2em 0 .6em 1.1em; color:#5a5060}
+
+    .footer{margin-top:20px; font-size:12px; color:#7a6c82}
+    .goldline{height:1px; background:linear-gradient(90deg,transparent, var(--gold), transparent); margin:10px 0}
+
+    .toast{position:fixed; left:50%; bottom:24px; transform:translateX(-50%); background:#1a1320; color:#fff; padding:12px 16px; border-radius:12px; box-shadow:0 10px 30px rgba(0,0,0,.2); font-size:14px; opacity:0; pointer-events:none; transition:opacity .25s ease}
+    .toast.show{opacity:1}
+
+    /* Tiny test badge */
+    .test-badge{position:fixed; right:12px; bottom:12px; font-size:12px; padding:6px 8px; border-radius:10px; color:#fff}
+    .ok{background:#2e7d32} .fail{background:#c62828}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">Charm Merge</div>
+      <div class="hud">
+        <div class="pill">Score <div class="big" id="score">0</div></div>
+        <div class="pill">Best <div class="big" id="best">0</div></div>
+        <button class="btn" id="newGame">New Game</button>
+        <button class="btn gold" id="undoBtn" title="Undo last move">Undo ↺</button>
+      </div>
+    </header>
+
+    <div class="panel">
+      <div class="card" style="display:flex; flex-direction:column; align-items:center; gap:12px">
+        <div class="board" id="board">
+          <div class="grid" id="grid">
+            <!-- background cells -->
+          </div>
+        </div>
+        <div style="font-size:12px; color:#7a6c82">Use ⬆️⬇️⬅️➡️ or swipe.</div>
+      </div>
+
+      <div class="card help">
+        <h3>How to play</h3>
+        <p>Slide the board to merge matching <em>charms</em>. Each merge creates a higher-tier charm. Keep the board from filling up and chase the <strong>Wish Orb</strong> ✨</p>
+        <div class="goldline"></div>
+        <h3>Charm tiers</h3>
+        <ul id="tierList"></ul>
+        <div class="goldline"></div>
+        <h3>Tips</h3>
+        <ul>
+          <li>Keep your highest charm in a corner.</li>
+          <li>Plan merges two moves ahead.</li>
+          <li>Use <strong>Undo</strong> if a move jams the board.</li>
+        </ul>
+        <p class="footer">© Airy Fairy Press • Cozy puzzle vibes</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">New best!</div>
+  <div id="testBadge" class="test-badge" style="display:none"></div>
+
+  <script>
+    // --- Game Config ---
+    const SIZE = 5; // 5x5 grid
+    const START_TILES = 2;
+    const SPAWN_WEIGHTS = [0.7, 0.25, 0.05]; // chance to spawn tier 0/1/2
+
+    const TIERS = [
+      {emoji:"🎀", name:"Bow", color:"#fff", ring:"#f6e7f1"},
+      {emoji:"🌸", name:"Bloom", color:"#fff", ring:"#f1e7f6"},
+      {emoji:"🕯️", name:"Candle", color:"#fff", ring:"#f6efe7"},
+      {emoji:"🍵", name:"Tea", color:"#fff", ring:"#e9f5ef"},
+      {emoji:"💌", name:"Love Note", color:"#fff", ring:"#e6f0ff"},
+      {emoji:"💐", name:"Bouquet", color:"#fff", ring:"#fff3da"},
+      {emoji:"✨", name:"Wish Orb", color:"#fff", ring:"#f5f0ff"}
+    ];
+
+    // --- State ---
+    let grid = []; // numbers (tier index) or null
+    let score = 0; let best = parseInt(localStorage.getItem('cm_best')||'0',10);
+    let history = []; // undo stack: {grid, score}
+
+    // --- Helpers ---
+    const idx = (r,c)=> r*SIZE + c;
+
+    function emptyCells(){
+      const cells=[]; for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) if(grid[idx(r,c)]==null) cells.push([r,c]);
+      return cells;
+    }
+    function cloneGrid(g=grid){ return g.slice(); }
+
+    function pushHistory(){ history.push({ grid: cloneGrid(), score }); if(history.length>40) history.shift(); }
+
+    function spawn(){
+      const cells = emptyCells(); if(!cells.length) return false;
+      const [r,c] = cells[Math.floor(Math.random()*cells.length)];
+      // weighted spawn
+      const roll = Math.random();
+      let tier = 0; if(roll>SPAWN_WEIGHTS[0]) tier = 1; if(roll>(SPAWN_WEIGHTS[0]+SPAWN_WEIGHTS[1])) tier = 2;
+      grid[idx(r,c)] = tier;
+      drawTiles();
+      return true;
+    }
+
+    function canMove(){
+      if(emptyCells().length) return true;
+      for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+        const t = grid[idx(r,c)];
+        if(r+1<SIZE && grid[idx(r+1,c)]===t) return true;
+        if(c+1<SIZE && grid[idx(r,c+1)]===t) return true;
+      }
+      return false;
+    }
+
+    // Move logic inspired by 2048 but for equality merges → +1 tier
+    function move(dir){
+      // dir: 'up','down','left','right'
+      const dr = {up:-1,down:1,left:0,right:0}[dir];
+      const dc = {up:0,down:0,left:-1,right:1}[dir];
+      const orderR = [...Array(SIZE).keys()].sort((a,b)=> (dir==='down'?b-a:a-b));
+      const orderC = [...Array(SIZE).keys()].sort((a,b)=> (dir==='right'?b-a:a-b));
+
+      let moved = false;
+      pushHistory();
+
+      // collapse pass for each line
+      const merged = Array(SIZE*SIZE).fill(false);
+
+      for(const r0 of orderR){
+        for(const c0 of orderC){
+          let r=r0, c=c0; const i = idx(r,c); let val = grid[i]; if(val==null) continue;
+          let nr=r+dr, nc=c+dc;
+          while(nr>=0 && nr<SIZE && nc>=0 && nc<SIZE){
+            const j = idx(nr,nc);
+            if(grid[j]==null){ // slide
+              grid[j]=val; grid[idx(r,c)]=null; r=nr; c=nc; moved=true; nr+=dr; nc+=dc; continue;
+            } else if(grid[j]===val && !merged[j]){ // merge
+              grid[j]=Math.min(val+1, TIERS.length-1); grid[idx(r,c)]=null; merged[j]=true; moved=true;
+              score += (val+1)*10; // simple scoring
+              break;
+            } else {
+              break;
+            }
+          }
+        }
+      }
+
+      if(moved){
+        drawTiles();
+        spawn();
+        updateScore();
+        checkEnd();
+      } else {
+        history.pop(); // no-op move, discard
+      }
+    }
+
+    function undo(){
+      const prev = history.pop(); if(!prev) return;
+      grid = prev.grid; score = prev.score; drawTiles(); updateScore();
+    }
+
+    // --- Rendering ---
+    const gridEl = document.getElementById('grid');
+    const boardEl = document.getElementById('board');
+
+    function buildCells(){
+      gridEl.innerHTML='';
+      for(let i=0;i<SIZE*SIZE;i++){
+        const cell=document.createElement('div'); cell.className='cell'; gridEl.appendChild(cell);
+      }
+    }
+
+    function drawTierList(){
+      const ul=document.getElementById('tierList');
+      ul.innerHTML = TIERS.map((t,i)=>`<li>${t.emoji} <strong>${t.name}</strong> (Tier ${i+1})</li>`).join('');
+    }
+
+    function drawTiles(){
+      // remove old tiles
+      document.querySelectorAll('.tile').forEach(n=>n.remove());
+      // add tiles
+      for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+          const val = grid[idx(r,c)]; if(val==null) continue;
+          const tile = document.createElement('div'); tile.className='tile';
+          // place the tile in the CSS grid cell
+          tile.style.gridRowStart = (r+1);
+          tile.style.gridColumnStart = (c+1);
+          const face = document.createElement('div'); face.className='face';
+          face.style.background = `radial-gradient(120px 90px at 20% 0%, ${TIERS[val].color}, #fff), #fff`;
+          face.style.boxShadow = `inset 0 0 0 2px ${TIERS[val].ring}`;
+          const em=document.createElement('div'); em.style.fontSize = (val>=5?36:32)+"px"; em.textContent = TIERS[val].emoji;
+          const lab=document.createElement('div'); lab.className='label'; lab.textContent=TIERS[val].name;
+          face.appendChild(em); face.appendChild(lab); tile.appendChild(face); gridEl.appendChild(tile);
+        }
+      }
+    }
+
+    function updateScore(){
+      document.getElementById('score').textContent = score;
+      if(score>best){ best=score; localStorage.setItem('cm_best', String(best)); toast('New best!'); }
+      document.getElementById('best').textContent = best;
+    }
+
+    function toast(msg){
+      const t=document.getElementById('toast'); t.textContent=msg; t.classList.add('show');
+      setTimeout(()=> t.classList.remove('show'), 1400);
+    }
+
+    function checkEnd(){
+      if(!canMove()){
+        setTimeout(()=>{
+          alert('Board is full! Final score: '+score+'\nTip: Keep your highest charm in a corner.');
+        }, 50);
+      }
+    }
+
+    function newGame(){
+      history.length=0; score=0; grid = Array(SIZE*SIZE).fill(null);
+      for(let i=0;i<START_TILES;i++) spawn();
+      drawTiles(); updateScore();
+    }
+
+    // --- Input ---
+    window.addEventListener('keydown', (e)=>{
+      const key = e.key;
+      if(['ArrowUp','w','W'].includes(key)) move('up');
+      else if(['ArrowDown','s','S'].includes(key)) move('down');
+      else if(['ArrowLeft','a','A'].includes(key)) move('left');
+      else if(['ArrowRight','d','D'].includes(key)) move('right');
+    });
+
+    // touch swipe
+    let touchStart=null;
+    boardEl.addEventListener('touchstart', e=>{ touchStart = {x:e.touches[0].clientX, y:e.touches[0].clientY}; }, {passive:true});
+    boardEl.addEventListener('touchend', e=>{
+      if(!touchStart) return; const dx = (e.changedTouches[0].clientX - touchStart.x); const dy = (e.changedTouches[0].clientY - touchStart.y);
+      const ax=Math.abs(dx), ay=Math.abs(dy); if(Math.max(ax,ay) < 24) return; // threshold
+      if(ax>ay) move(dx>0?'right':'left'); else move(dy>0?'down':'up');
+      touchStart=null;
+    }, {passive:true});
+
+    document.getElementById('newGame').addEventListener('click', newGame);
+    document.getElementById('undoBtn').addEventListener('click', undo);
+
+    // --- Tiny Test Suite (adds more tests if none existed) ---
+    (function runTests(){
+      const badge = document.getElementById('testBadge');
+      function pass(txt){ badge.textContent = '✔ ' + txt; badge.className='test-badge ok'; badge.style.display='block'; console.info('[TEST PASS]', txt); }
+      function fail(txt){ badge.textContent = '✖ ' + txt; badge.className='test-badge fail'; badge.style.display='block'; console.error('[TEST FAIL]', txt); }
+      try{
+        // Test 1: Board initializes with SIZE*SIZE cells
+        if(document.querySelectorAll('#grid .cell').length !== SIZE*SIZE) throw new Error('Grid cell count mismatch');
+        // Test 2: newGame spawns START_TILES tiles (non-null entries)
+        let filled = grid.filter(x=>x!=null).length; if(filled < START_TILES) throw new Error('Not enough starting tiles');
+        // Test 3: canMove should be true on fresh board
+        if(!canMove()) throw new Error('canMove false on fresh board');
+        // Test 4: undo restores state
+        const snap = {grid: cloneGrid(), score};
+        move('left'); undo();
+        const same = JSON.stringify(grid)===JSON.stringify(snap.grid) && score===snap.score;
+        if(!same) throw new Error('Undo did not restore state');
+        pass('All tests passed');
+      }catch(e){ fail(e.message); }
+    })();
+
+    // --- Boot ---
+    buildCells(); drawTierList(); newGame(); updateScore();
+  </script>
+</body>
+</html>
